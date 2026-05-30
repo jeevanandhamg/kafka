@@ -101,20 +101,19 @@ stage('Deploy to Kubernetes') {
             agent {
                 docker {
                     image 'bitnami/kubectl:latest'
-                    // Maps the secure keys we just shared into this temporary agent container
-                    args '-v /var/jenkins_home/.kube:/config/.kube:ro'
+                    // 🚀 We added --entrypoint='' here to fix the Jenkins crash
+                    args '-u root --entrypoint="" -v /root/.kube:/config/.kube:ro'
                 }
             }
             steps {
                 script {
-                    // 1. Apply any changes made to your YAML blueprint
-                    sh "kubectl apply -f k8s-deployment.yaml"
-
-                    // 2. Force your 3 pods to pull the fresh ':latest' image from Docker Hub
-                    sh "kubectl rollout restart deployment/kafka-springboot-app-deployment -n dev"
-
-                    // 3. Monitor the deployment to make sure it succeeds completely
-                    sh "kubectl rollout status deployment/kafka-springboot-app-deployment -n dev"
+                    // Inside this container, the config file defaults to /config/.kube/config
+                    // We point KUBECONFIG to it so kubectl knows where your keys are
+                    withEnv(["KUBECONFIG=/config/.kube/config"]) {
+                        sh "kubectl apply -f k8s-deployment.yaml"
+                        sh "kubectl rollout restart deployment/kafka-springboot-app-deployment -n dev"
+                        sh "kubectl rollout status deployment/kafka-springboot-app-deployment -n dev"
+                    }
                 }
             }
         }
