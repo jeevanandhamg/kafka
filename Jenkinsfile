@@ -41,10 +41,31 @@ pipeline {
 //             }
 //         }
 
-        stage('Build Docker Image') {
-            steps {
-                sh "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
-                sh "docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest"
+//         stage('Build Docker Image') {
+//             steps {
+//                 sh "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
+//                 sh "docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest"
+//             }
+//         }
+
+            stage('Build Docker Image') {
+                steps {
+                    script {
+                    // Downloads a modern, static Linux Docker CLI binary if it doesn't exist
+                    sh '''
+                    if ! command -v docker &> /dev/null; then
+                        echo "Docker CLI not found. Installing modern static binary..."
+                        curl -fsSL https://download.docker.com/linux/static/stable/aarch64/docker-26.1.3.tgz -o docker.tgz
+                        tar -xzvf docker.tgz
+                        mv docker/docker /usr/local/bin/
+                        rm -rf docker docker.tgz
+                    fi
+                    '''
+
+                    // Now your build commands will run flawlessly using the modern client
+                    sh "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
+                    sh "docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest"
+                }
             }
         }
 
