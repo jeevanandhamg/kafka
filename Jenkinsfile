@@ -118,7 +118,7 @@ pipeline {
 
     post {
         success {
-            echo 'Pipeline succeeded! App deployed successfully.'
+            echo 'Pipeline succeeded! App deployed successfully!!.'
         }
         failure {
             echo 'Pipeline failed! Check the logs.'
