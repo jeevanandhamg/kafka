@@ -3,7 +3,7 @@ pipeline {
 
     tools {
             maven 'maven-3'
-            dockerTool 'default' // This activates the Docker CLI for your steps
+            //dockerTool 'default' // This activates the Docker CLI for your steps
         }
     environment {
         // credentials stored in Jenkins — not hardcoded
