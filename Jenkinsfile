@@ -101,14 +101,13 @@ stage('Deploy to Kubernetes') {
             agent {
                 docker {
                     image 'bitnami/kubectl:latest'
-                    // 🚀 We added --entrypoint='' here to fix the Jenkins crash
-                    args '-u root --entrypoint="" -v /root/.kube:/config/.kube:ro'
+                    // 🚀 CHANGED: Point args directly to the shared home workspace path instead of /root
+                    args '-u root --entrypoint="" -v /var/jenkins_home/.kube:/config/.kube:ro'
                 }
             }
             steps {
                 script {
-                    // Inside this container, the config file defaults to /config/.kube/config
-                    // We point KUBECONFIG to it so kubectl knows where your keys are
+                    // Tell kubectl inside the container exactly where to find the config file
                     withEnv(["KUBECONFIG=/config/.kube/config"]) {
                         sh "kubectl apply -f k8s-deployment.yaml"
                         sh "kubectl rollout restart deployment/kafka-springboot-app-deployment -n dev"
