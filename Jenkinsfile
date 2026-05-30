@@ -107,7 +107,7 @@ pipeline {
         steps {
             withCredentials([file(credentialsId: 'kubeconfig-secret', variable: 'KUBECONFIG')]) {
                 sh '''
-                    kubectl apply -f k8s-deployment.yaml
+                    kubectl apply -f k8s-deployment.yaml --validate=false
                     kubectl rollout restart deployment/kafka-springboot-app-deployment -n dev
                     kubectl rollout status deployment/kafka-springboot-app-deployment -n dev
                 '''
