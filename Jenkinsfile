@@ -101,18 +101,17 @@ stage('Deploy to Kubernetes') {
             agent {
                 docker {
                     image 'bitnami/kubectl:latest'
-                    // 🚀 CHANGED: Removed --network=host and replaced it with a direct validation override
                     args '-u root --entrypoint="" -v /var/jenkins_home/.kube:/config/.kube:ro'
                 }
             }
             steps {
                 script {
                     withEnv(["KUBECONFIG=/config/.kube/config"]) {
-                        // 🚀 CHANGED: Explicitly routing --server over the Mac bridge and turning off validation
-                        sh "kubectl apply -f k8s-deployment.yaml --server=http://host.docker.internal:8080 --validate=false"
+                        // 🚀 FIXED: Pointing to the secure internal domain on port 6443 with TLS bypass
+                        sh "kubectl apply -f k8s-deployment.yaml --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify=true --validate=false"
 
-                        sh "kubectl rollout restart deployment/kafka-springboot-app-deployment -n dev --server=http://host.docker.internal:8080"
-                        sh "kubectl rollout status deployment/kafka-springboot-app-deployment -n dev --server=http://host.docker.internal:8080"
+                        sh "kubectl rollout restart deployment/kafka-springboot-app-deployment -n dev --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify=true"
+                        sh "kubectl rollout status deployment/kafka-springboot-app-deployment -n dev --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify=true"
                     }
                 }
             }
