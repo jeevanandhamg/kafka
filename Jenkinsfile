@@ -101,13 +101,12 @@ stage('Deploy to Kubernetes') {
             agent {
                 docker {
                     image 'bitnami/kubectl:latest'
-                    // 🚀 CHANGED: Point args directly to the shared home workspace path instead of /root
-                    args '-u root --entrypoint="" -v /var/jenkins_home/.kube:/config/.kube:ro'
+                    // 🚀 ADDED: --network=host lets the container see your Mac's localhost cluster
+                    args '-u root --network=host --entrypoint="" -v /var/jenkins_home/.kube:/config/.kube:ro'
                 }
             }
             steps {
                 script {
-                    // Tell kubectl inside the container exactly where to find the config file
                     withEnv(["KUBECONFIG=/config/.kube/config"]) {
                         sh "kubectl apply -f k8s-deployment.yaml"
                         sh "kubectl rollout restart deployment/kafka-springboot-app-deployment -n dev"
