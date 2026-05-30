@@ -96,6 +96,28 @@ pipeline {
 //                 sh "kubectl rollout status deployment/springboot-kafka-app"
 //             }
 //         }
+
+stage('Deploy to Kubernetes') {
+            agent {
+                docker {
+                    image 'bitnami/kubectl:latest'
+                    // Maps the secure keys we just shared into this temporary agent container
+                    args '-v /var/jenkins_home/.kube:/config/.kube:ro'
+                }
+            }
+            steps {
+                script {
+                    // 1. Apply any changes made to your YAML blueprint
+                    sh "kubectl apply -f k8s-deployment.yaml"
+
+                    // 2. Force your 3 pods to pull the fresh ':latest' image from Docker Hub
+                    sh "kubectl rollout restart deployment/kafka-springboot-app-deployment -n dev"
+
+                    // 3. Monitor the deployment to make sure it succeeds completely
+                    sh "kubectl rollout status deployment/kafka-springboot-app-deployment -n dev"
+                }
+            }
+        }
     }
 
     post {

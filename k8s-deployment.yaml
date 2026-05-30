@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-springboot-app-deployment
+  namespace: dev  # Declares the Namespace for the Deployment manager
+  labels:
+    app: kafka-springboot-app
+spec:
+  replicas: 3  # 🚀 Scales your application to 3 identical running Pods
+  selector:
+    matchLabels:
+      app: kafka-springboot-app
+  template:
+    metadata:
+      labels:
+        app: kafka-springboot-app
+    spec:
+      # --- POD LEVEL CONFIGURATION STARTS HERE ---
+      # Optional: Force these pods to target a specific node name if required
+      # nodeName: docker-desktop
+
+      containers:
+        - name: kafka-springboot-app
+          image: jeeva97/kafka-springboot-app:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8081
+          env:
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: "host.docker.internal:9092"
+            - name: SERVER_PORT
+              value: "8081"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-springboot-app-service
+  namespace: dev  # ⚠️ Must be in the same namespace to route traffic to your pods!
+spec:
+  type: NodePort
+  selector:
+    app: kafka-springboot-app
+  ports:
+    - port: 8081
+      targetPort: 8081
+      nodePort: 30081
