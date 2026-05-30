@@ -71,14 +71,21 @@ pipeline {
 
         stage('Push to Docker Hub') {
                     steps {
-                        // This block explicitly binds your Jenkins ID to custom variables
+                        // Keep these as generic variable names inside single quotes!
+                        // Jenkins will inject your real credentials into them securely.
                         withCredentials([usernamePassword(credentialsId: 'docker-hub-creds',
-                                                         usernameVariable: 'jeeva97',
-                                                         passwordVariable: 'dckr_pat_Q21mWHnOMAiGaB03tJyyxgQtxt4')]) {
+                                                         usernameVariable: 'DOCKER_USER',
+                                                         passwordVariable: 'DOCKER_PASS')]) {
 
-                            sh "echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin"
+                            // Using backslashes \$ ensures shell interpolation rather than Groovy leakage
+                            sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin"
                             sh "docker push ${IMAGE_NAME}:${BUILD_NUMBER}"
                             sh "docker push ${IMAGE_NAME}:latest"
+                        }
+                    }
+                    post {
+                        always {
+                            sh "docker logout"
                         }
                     }
                 }
