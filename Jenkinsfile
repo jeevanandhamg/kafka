@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         // credentials stored in Jenkins — not hardcoded
-        DOCKER_HUB_CREDENTIALS = credentials('docker-hub-creds')
+        //DOCKER_HUB_CREDENTIALS = credentials('docker-hub-creds')
         IMAGE_NAME = 'jeeva97/kafka-springboot-app'
     }
 
@@ -45,12 +45,18 @@ pipeline {
         }
 
         stage('Push to Docker Hub') {
-            steps {
-                sh "echo ${DOCKER_HUB_CREDENTIALS_PSW} | docker login -u ${DOCKER_HUB_CREDENTIALS_USR} --password-stdin"
-                sh "docker push ${IMAGE_NAME}:${BUILD_NUMBER}"
-                sh "docker push ${IMAGE_NAME}:latest"
-            }
-        }
+                    steps {
+                        // This block explicitly binds your Jenkins ID to custom variables
+                        withCredentials([usernamePassword(credentialsId: 'docker-hub-creds',
+                                                         usernameVariable: 'jeeva97',
+                                                         passwordVariable: 'dckr_pat_Q21mWHnOMAiGaB03tJyyxgQtxt4')]) {
+
+                            sh "echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin"
+                            sh "docker push ${IMAGE_NAME}:${BUILD_NUMBER}"
+                            sh "docker push ${IMAGE_NAME}:latest"
+                        }
+                    }
+                }
 
 //         stage('Deploy to Kubernetes') {
 //             steps {
