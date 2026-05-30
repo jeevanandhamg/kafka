@@ -107,11 +107,14 @@ stage('Deploy to Kubernetes') {
             steps {
                 script {
                     withEnv(["KUBECONFIG=/config/.kube/config"]) {
-                        // 🚀 FIXED: Pointing to the secure internal domain on port 6443 with TLS bypass
-                        sh "kubectl apply -f k8s-deployment.yaml --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify=true --validate=false"
+                        // 🚀 FIXED: Force the container to use the native context & dynamically update its endpoint
+                        sh "kubectl config use-context docker-desktop"
+                        sh "kubectl config set-cluster docker-desktop --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify=true"
 
-                        sh "kubectl rollout restart deployment/kafka-springboot-app-deployment -n dev --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify=true"
-                        sh "kubectl rollout status deployment/kafka-springboot-app-deployment -n dev --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify=true"
+                        // Run deployment commands securely using the updated context
+                        sh "kubectl apply -f k8s-deployment.yaml --validate=false"
+                        sh "kubectl rollout restart deployment/kafka-springboot-app-deployment -n dev"
+                        sh "kubectl rollout status deployment/kafka-springboot-app-deployment -n dev"
                     }
                 }
             }
