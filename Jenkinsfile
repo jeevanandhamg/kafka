@@ -97,17 +97,23 @@ pipeline {
 //             }
 //         }
 
-stage('Deploy to Kubernetes') {
-    steps {
-        withCredentials([file(credentialsId: 'kubeconfig-secret', variable: 'KUBECONFIG')]) {
-            sh '''
-                kubectl apply -f k8s-deployment.yaml
-                kubectl rollout restart deployment/kafka-springboot-app-deployment -n dev
-                kubectl rollout status deployment/kafka-springboot-app-deployment -n dev
-            '''
+    stage('Deploy to Kubernetes') {
+        agent {
+            docker {
+                image 'bitnami/kubectl:latest'
+                args '-u root --entrypoint=""'
+            }
+        }
+        steps {
+            withCredentials([file(credentialsId: 'kubeconfig-secret', variable: 'KUBECONFIG')]) {
+                sh '''
+                    kubectl apply -f k8s-deployment.yaml
+                    kubectl rollout restart deployment/kafka-springboot-app-deployment -n dev
+                    kubectl rollout status deployment/kafka-springboot-app-deployment -n dev
+                '''
+            }
         }
     }
-}
     }
 
     post {
