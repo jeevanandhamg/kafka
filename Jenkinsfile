@@ -101,21 +101,36 @@ stage('Deploy to Kubernetes') {
             agent {
                 docker {
                     image 'bitnami/kubectl:latest'
-                    args '-u root --entrypoint="" -v /var/jenkins_home/.kube:/config/.kube:ro'
+                    args '-u root --entrypoint=""'
                 }
             }
             steps {
                 script {
-                    withEnv(["KUBECONFIG=/config/.kube/config"]) {
-                        // 🚀 FIXED: Force the container to use the native context & dynamically update its endpoint
-                        sh "kubectl config use-context docker-desktop"
-                        sh "kubectl config set-cluster docker-desktop --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify=true"
+                    // Create an isolated workspace directory for this deployment's config
+                    sh "mkdir -p .kube-temp"
 
-                        // Run deployment commands securely using the updated context
+                    withEnv(["KUBECONFIG=${WORKSPACE}/.kube-temp/config"]) {
+                        // 1. Point to the Docker network bridge URL
+                        sh "kubectl config set-cluster local-cluster --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify=true"
+
+                        // 2. Embed your Mac's certificate strings directly into the running context
+                        sh "kubectl config set-credentials pipeline-user --client-certificate-data='LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURRakNDQWlxZ0F3SUJBZ0lJRk1tVGk5emdBcUF3RFFZSktvWklodmNOQVFFTEJRQXdGVEVUTUJFR0ExVUUKQXhNS2EzVmlaWEp1WlhSbGN6QWVGdzB5TmpBMU16QXhNREUyTkRKYUZ3MHlOekExTXpBeE1ERTJOREphTURZeApGekFWQmdOVkJBb1REbk41YzNSbGJUcHRZWE4wWlhKek1Sc3dHUVlEVlFRREV4SmtiMk5yWlhJdFptOXlMV1JsCmMydDBiM0F3Z2dFaU1BMEdDU3FHU0liM0RRRUJBUVVBQTRJQkR3QXdnZ0VLQW9JQkFRRHNRQVF2dlhrRFpBZDgKbWhrbEN4T01MN3NRS1F2enZnaXZ2TmdkWDJ0MGRZOURDdGU2VEd2NG5XdG5jL1phczc0NWxPM0J5V0tsS3VneApSblRmbTA3Y0VETUtwWWZQL2FRTTIvRlFrbjhlaVZvNmo3MDBjbXVOckJlTzFJSVl0K043cjBxZnY3Z2VEMVdECnNIMWM4L3FQWHpZUnVDZFh6WTNsamtzN0RXSW5sY1Jua1ozaHVlTDd5UWg0elBBZXZ4N09yYWs3Z0R0UmxXb28KTzloci9TejMyY1drK0RRQ09kZkFlUUc0SjJoWEgrWUlDUk04bXc5NERpVkw0dE02U2FTMUJkSHdmWmhEVEJRSAo2RUhKbm8rZEtKdHprZFJqNUd5TjRXZzRQOW0vbXNQY3I2TUlMNlNQTU1XNHdlUkoxZ3UwZTZTdXk4T21oS3NtCm05dGpGMG5WQWdNQkFBR2pkVEJ6TUE0R0ExVWREd0VCL3dRRUF3SUZvREFUQmdOVkhTVUVEREFLQmdnckJnRUYKQlFjREFqQU1CZ05WSFJNQkFmOEVBakFBTUI4R0ExVWRJd1FZTUJhQUZEak1UZ2tDcEVpWEFQR0RxT09HUWhsdQpTZ0p0TUIwR0ExVWRFUVFXTUJTQ0VtUnZZMnRsY2kxbWIzSXRaR1Z6YTNSdmNEQU5CZ2txaGtpRzl3MEJBUXNGCkFBT0NBUUVBcHBoQzNqNTAxeC8zblJTaHllY1BxNWgvbGd5NWMrR05UU0l6bGZwNmkwaGhvZlVKNlZLMUZKbEcKUnQ5Qk55VE1jVnlUdE9sS3g3RjRGeE5JQkhjMUpsR09EcUZRSDJGcUExT25xNEpxSWw2clVsTzBua0lHYnozMApxWHhnNG9YSEpNb1I5YWJSbXZDaDhGOFNKMTd3NDk1K1MrYjlQUCtTTlRQeUZOdG9WeVRnQmFpeThLZk1GenozClB4NCtFT1g4YlhkYngrb1ZqTWZlUW9NQy9tRWRuWm4xSmVKM2UzVEh6aG1zc2pldkk0Z0pWUU1RdUtYM0VpNjgKUXVGdXhIWXBMbFRJbng5ZGxpQmxUQWhmWFg3ZXNETkl0VHhBZldMemZWc2JSa1NNc05MamNVQ2RGZ0xIWVprdwpaRWw3N28yUFUwMDZGOVpvRldoUFFmTDBvTlJXd0E9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==' --client-key-data='LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFcFFJQkFBS0NBUUVBN0VBRUw3MTVBMlFIZkpvWkpRc1RqQys3RUNrTDg3NElyN3pZSFY5cmRIV1BRd3JYCnVreHIrSjFyWjNQMldyTytPWlR0d2NsaXBTcm9NVVowMzV0TzNCQXpDcVdIei8ya0ROdnhVSkovSG9sYU9vKzkKTkhKcmphd1hqdFNDR0xmamU2OUtuNys0SGc5Vmc3QjlYUFA2ajE4MkViZ25WODJONVk1TE93MWlKNVhFWjVHZAo0Ym5pKzhrSWVNendIcjhlenEycE80QTdVWlZxS0R2WWEvMHM5OW5GcFBnMEFqblh3SGtCdUNkb1Z4L21DQWtUClBKc1BlQTRsUytMVE9rbWt0UVhSOEgyWVEwd1VCK2hCeVo2UG5TaWJjNUhVWStSc2plRm9PRC9adjVyRDNLK2oKQ0Mra2p6REZ1TUhrU2RZTHRIdWtyc3ZEcG9TckpwdmJZeGRKMVFJREFRQUJBb0lCQUIvRzkra3dwcWpaUTcvZQpVdzNaQUxtYXAvZU9BSVlQWkhLNFIzek5SaEphOG1OVnFqRVhCaG8yN21pZGFxQnc5elZ6NktFU3hLVXJ4c3lZCm4xclR0SmFaZFRiSmozYmZYK1FTUE5JV0g3N01seW1KQmxoRXl3a1BnZmNHY3QzK24yZHJ3TWF6dVN1NGxmWTAKZjBCSldacXBvZ2V6SDFPZm1mdXJ3L0crK2U5bk9GOTZxSnVBenpIZHRiQ3FWWW1teG9CZUJKdHdkbTVTUDUvVQplNkZ4SzhCSGtPOVQvcEkxemVNUFNYKy9rYjZXN01zNXErYVErREhJV2dYdmFFVXI4aGx5TTRYaWRjOHdJWk5XClM5b3FxLzZnbHRETk9UaktLcUtueVRJcEYyN2p3MG5XdThQa0JhcUNQQ28rODh1eC9GYkg4NkFCUXdJbjl6MDEKM3lLdWRWY0NnWUVBOEJVTlQ5RHBLbjMrTThKOVdJL0N4SlBzdkJDeldtMC8raWMvTjlZeTRZdndLRGNGeFFHUgpVUTJDbU1pNDc5RFc5SzloZEFpU0V2MHV3MkxuRU9VcVNYK3FQaVNRZkpVelJlR3hlSGJtYmR6Tm8zSEloNjgvCjV5MXMrTWNhK1FxbkNaNzFPTDI5UEUxVTRVTXNTSDVQc2s2bVd3c1hTcW96ay9yclk4dkx0M2NDZ1lFQSsrbnIKbi8xMlJhSndsdk5pRkk5OElMYjhLUzB3ZHA1TDUyMWc4emZkQXJ2VUlOQTZhTklUVnlpR1NVb1YzZ3E4UUx3YwpiT2NGdzh0cFJpcnhMQzhqOU10TkxJalQ2aFZxazZER1pjdmN6UWtOUnNZWGVoaWF3cmRiWnMzS1lqd0ZMa1FkCjFXUFBnclpzRWdVbmR3OFRTZENBWC9wZHZkOTNKWkhmQjJvUHRCTUNnWUVBazl5elhTUVNacnhBVWtxSGZvTFQKOXRRUUttZXl2bytvcG4yRGZ2VXFVeVVubk96K1hhNHdmSlh3aC82ZmYvdkVWK0NvQ1ptNXRYNC9UZERjOU5mZgpLbk01TzVxemJqZEo0OUV6eHppYmhMQkg2bEVLcXg1eElnVWxKemNoVXA2UDcrbjVwNStjSzhhSTcwKzZ0MDhyCjhHcG1KSTU1SXVBZWNoWkk0U2JENmRNQ2dZRUFyQ2xvMjlXSUgvenMvMnprS2ZNSnZQM3hoVjZaMFdkTHJxVWsKN2ZQT3VwQ05YOE9QTjVYaW05MVpNUHROeUlzRHJ5WWdNeGtMNm95NHJMaXFUQzBIWU1RVVFReGQ3NHVsWTdFcwpCZVAyU2JZVytiaGwwUTdCcmJOTDV3MWJkQmxhM1F5MmF1Q2tyOHRtUGthQmV5KzFXZXdCNEJZbVBKNWRPakxmCi9wd3drVHNDZ1lFQTR2Q3FHYXJjK25odS9FczA3UHFrSmdzb0dFdmVrNEtkWCtNRWtnS2JkZFk1bVR2UENKRlAKWUxLSmdaVU9kNHFTQnVhaS95UkpXaHN5QkVZSCtTV0JRMmE0dzV0TWluNXk5NkdqS3BSaWFrSUR5ZXIxR2V3egphS0Y4K0dmMDlyNUVSOVlTS0ZMZ1d6aWk4dUFLQzVoaThjMWc4cDlnREJkdzNTc2EvaXVXaExZPQotLS0tLUVORCBSU0EgUFJJVkFURSBLRVktLS0tLQo='"
+
+                        // 3. Link them under a predictable pipeline context
+                        sh "kubectl config set-context pipeline-ctx --cluster=local-cluster --user=pipeline-user"
+                        sh "kubectl config use-context pipeline-ctx"
+
+                        // 4. Deploy your Spring Boot app
                         sh "kubectl apply -f k8s-deployment.yaml --validate=false"
                         sh "kubectl rollout restart deployment/kafka-springboot-app-deployment -n dev"
                         sh "kubectl rollout status deployment/kafka-springboot-app-deployment -n dev"
                     }
+                }
+            }
+            post {
+                always {
+                    // Clean up the temporary config space
+                    sh "rm -rf .kube-temp"
                 }
             }
         }
