@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    tools {
+        // Automatically installs and adds Maven to the PATH
+        maven 'maven-3'
+    }
     environment {
         // credentials stored in Jenkins — not hardcoded
         //DOCKER_HUB_CREDENTIALS = credentials('docker-hub-creds')
