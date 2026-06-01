@@ -21,7 +21,7 @@ spec:
 
       containers:
         - name: kafka-springboot-app
-          image: jeeva97/kafka-springboot-app:63
+          image: jeeva97/kafka-springboot-app:66
           imagePullPolicy: Always
           ports:
             - containerPort: 8081
