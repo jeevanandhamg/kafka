@@ -1,7 +1,7 @@
 pipeline {
     agent any
 options {
-        disableConcurrentBuilds()      // prevents overlapping jenkins builds
+        disableConcurrentBuilds()      // prevents overlapping jenkins - builds
     }
     tools {
             maven 'maven-3'
