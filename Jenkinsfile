@@ -1,6 +1,8 @@
 pipeline {
     agent any
-
+options {
+        disableConcurrentBuilds()      // prevents overlapping builds
+    }
     tools {
             maven 'maven-3'
             //dockerTool 'default' // This activates the Docker CLI for your steps
@@ -116,6 +118,11 @@ pipeline {
 //     }
 
 stage('Update Image Tag in Git') {
+when {
+        not {
+            changelog '.*ci: update image tag.*'
+        }
+    }
     steps {
         withCredentials([string(credentialsId: 'github-token', variable: 'GIT_TOKEN')]) {
             sh '''
@@ -133,6 +140,7 @@ stage('Update Image Tag in Git') {
             '''
         }
     }
+}
 }
     }
 
