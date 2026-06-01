@@ -135,7 +135,7 @@ when {
 
                 # commit and push
                 git add k8s/k8s-deployment.yaml
-                git commit -m "Update image tag to ${BUILD_NUMBER}"
+                git commit -m "ci: update image tag to ${BUILD_NUMBER}"
                 git push https://${GIT_TOKEN}@github.com/jeevanandhamg/kafka.git main
             '''
         }
