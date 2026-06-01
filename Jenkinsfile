@@ -1,15 +1,15 @@
 pipeline {
     agent any
-options {
-        disableConcurrentBuilds()      // prevents overlapping jenkins - builds
+
+    options {
+        disableConcurrentBuilds()
     }
+
     tools {
-            maven 'maven-3'
-            //dockerTool 'default' // This activates the Docker CLI for your steps
-        }
+        maven 'maven-3'
+    }
+
     environment {
-        // credentials stored in Jenkins — not hardcoded
-        //DOCKER_HUB_CREDENTIALS = credentials('docker-hub-creds')
         IMAGE_NAME = 'jeeva97/kafka-springboot-app'
     }
 
@@ -17,54 +17,47 @@ options {
 
         stage('Checkout') {
             steps {
-                // pulls your code from GitHub
                 git branch: 'main',
                     url: 'https://github.com/jeevanandhamg/kafka.git'
             }
         }
 
+        // ✅ Add this right after Checkout
+        stage('Check Commit') {
+            steps {
+                script {
+                    def commitMsg = sh(
+                        script: 'git log -1 --pretty=%B',
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Commit message: ${commitMsg}"
+
+                    if (commitMsg.contains('ci: update image tag')) {
+                        currentBuild.result = 'SUCCESS'
+                        error('Skipping — Jenkins tag update commit. Aborting pipeline.')
+                    }
+                }
+            }
+        }
+
         stage('Build') {
             steps {
-                // compiles and packages your Spring Boot app
                 sh 'mvn clean package -DskipTests'
             }
         }
 
-//         stage('Test') {
-//             steps {
-//                 // runs your unit tests
-//                 sh 'mvn test'
-//             }
-//             post {
-//                 always {
-//                     // publish test results in Jenkins UI
-//                     junit 'target/surefire-reports/*.xml'
-//                 }
-//             }
-//         }
-
-//         stage('Build Docker Image') {
-//             steps {
-//                 sh "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
-//                 sh "docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest"
-//             }
-//         }
-
-            stage('Build Docker Image') {
-                steps {
-                    script {
-                    // Downloads a modern, static Linux Docker CLI binary if it doesn't exist
+        stage('Build Docker Image') {
+            steps {
+                script {
                     sh '''
                     if ! command -v docker &> /dev/null; then
-                        echo "Docker CLI not found. Installing modern static binary..."
                         curl -fsSL https://download.docker.com/linux/static/stable/aarch64/docker-26.1.3.tgz -o docker.tgz
                         tar -xzvf docker.tgz
                         mv docker/docker /usr/local/bin/
                         rm -rf docker docker.tgz
                     fi
                     '''
-
-                    // Now your build commands will run flawlessly using the modern client
                     sh "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
                     sh "docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest"
                 }
@@ -72,81 +65,46 @@ options {
         }
 
         stage('Push to Docker Hub') {
-                    steps {
-                        // Keep these as generic variable names inside single quotes!
-                        // Jenkins will inject your real credentials into them securely.
-                        withCredentials([usernamePassword(credentialsId: 'docker-hub-creds',
-                                                         usernameVariable: 'DOCKER_USER',
-                                                         passwordVariable: 'DOCKER_PASS')]) {
-
-                            // Using backslashes \$ ensures shell interpolation rather than Groovy leakage
-                            sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin"
-                            sh "docker push ${IMAGE_NAME}:${BUILD_NUMBER}"
-                            sh "docker push ${IMAGE_NAME}:latest"
-                        }
-                    }
-                    post {
-                        always {
-                            sh "docker logout"
-                        }
-                    }
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-creds',
+                                                 usernameVariable: 'DOCKER_USER',
+                                                 passwordVariable: 'DOCKER_PASS')]) {
+                    sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin"
+                    sh "docker push ${IMAGE_NAME}:${BUILD_NUMBER}"
+                    sh "docker push ${IMAGE_NAME}:latest"
                 }
-
-//         stage('Deploy to Kubernetes') {
-//             steps {
-//                 sh "kubectl set image deployment/springboot-kafka-app springboot-kafka-app=${IMAGE_NAME}:${BUILD_NUMBER}"
-//                 sh "kubectl rollout status deployment/springboot-kafka-app"
-//             }
-//         }
-
-//     stage('Deploy to Kubernetes') {
-//         agent {
-//             docker {
-//                 image 'bitnami/kubectl:latest'
-//                 args '-u root --entrypoint=""'
-//             }
-//         }
-//         steps {
-//             withCredentials([file(credentialsId: 'kubeconfig-secret', variable: 'KUBECONFIG')]) {
-//                 sh '''
-//                     kubectl apply -f k8s-deployment.yaml --validate=false
-//                     kubectl rollout restart deployment/kafka-springboot-app-deployment -n dev
-//                     kubectl rollout status deployment/kafka-springboot-app-deployment -n dev
-//                 '''
-//             }
-//         }
-//     }
-
-stage('Update Image Tag in Git') {
-    when {
-        not {
-            changelog '.*ci: update image tag.*'
+            }
+            post {
+                always {
+                    sh "docker logout"
+                }
+            }
         }
-    }
-    steps {
-        withCredentials([string(credentialsId: 'github-token', variable: 'GIT_TOKEN')]) {
-            sh """
-                git config user.name "jeevanandhamg"
-                git config user.email "jeevanandham97gksj@gmail.com"
 
-                sed -i "s|jeeva97/kafka-springboot-app:.*|jeeva97/kafka-springboot-app:${BUILD_NUMBER}|g" k8s/k8s-deployment.yaml
+        stage('Update Image Tag in Git') {
+            steps {
+                withCredentials([string(credentialsId: 'github-token', variable: 'GIT_TOKEN')]) {
+                    sh """
+                        git config user.name "jeevanandhamg"
+                        git config user.email "jeevanandham97gksj@gmail.com"
 
-                git add k8s/k8s-deployment.yaml
-                git commit -m "ci: update image tag to ${BUILD_NUMBER}"
-                git push https://\${GIT_TOKEN}@github.com/jeevanandhamg/kafka.git main
-            """
+                        sed -i "s|jeeva97/kafka-springboot-app:.*|jeeva97/kafka-springboot-app:${BUILD_NUMBER}|g" k8s/k8s-deployment.yaml
+
+                        git add k8s/k8s-deployment.yaml
+                        git commit -m "ci: update image tag to ${BUILD_NUMBER}"
+                        git push https://\${GIT_TOKEN}@github.com/jeevanandhamg/kafka.git main
+                    """
+                }
+            }
         }
-    }
-}
     }
 
     post {
         success {
-            echo 'Pipeline succeeded! App deployed successfully!!.'
+            echo 'Pipeline succeeded!'
         }
         failure {
             echo 'Pipeline failed! Check the logs.'
         }
     }
 }
-
