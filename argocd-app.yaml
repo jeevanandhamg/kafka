@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kafka-springboot-app
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/jeevanandhamg/kafka.git
+    targetRevision: main
+    path: k8s                         # folder ArgoCD watches
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dev
+
+  syncPolicy:
+    automated:
+      prune: true                     # deletes removed resources
+      selfHeal: true                  # reverts manual kubectl changes
+    syncOptions:
+      - CreateNamespace=true          # creates 'dev' namespace if missing

@@ -97,23 +97,43 @@ pipeline {
 //             }
 //         }
 
-    stage('Deploy to Kubernetes') {
-        agent {
-            docker {
-                image 'bitnami/kubectl:latest'
-                args '-u root --entrypoint=""'
-            }
-        }
-        steps {
-            withCredentials([file(credentialsId: 'kubeconfig-secret', variable: 'KUBECONFIG')]) {
-                sh '''
-                    kubectl apply -f k8s-deployment.yaml --validate=false
-                    kubectl rollout restart deployment/kafka-springboot-app-deployment -n dev
-                    kubectl rollout status deployment/kafka-springboot-app-deployment -n dev
-                '''
-            }
+//     stage('Deploy to Kubernetes') {
+//         agent {
+//             docker {
+//                 image 'bitnami/kubectl:latest'
+//                 args '-u root --entrypoint=""'
+//             }
+//         }
+//         steps {
+//             withCredentials([file(credentialsId: 'kubeconfig-secret', variable: 'KUBECONFIG')]) {
+//                 sh '''
+//                     kubectl apply -f k8s-deployment.yaml --validate=false
+//                     kubectl rollout restart deployment/kafka-springboot-app-deployment -n dev
+//                     kubectl rollout status deployment/kafka-springboot-app-deployment -n dev
+//                 '''
+//             }
+//         }
+//     }
+
+stage('Update Image Tag in Git') {
+    steps {
+        withCredentials([string(credentialsId: 'github-token', variable: 'GIT_TOKEN')]) {
+            sh '''
+                # configure git
+                git config user.name "jeevanandhamg"
+                git config user.email "jeevanandham97gksj@gmail.com"
+
+                # update image tag in deployment yaml
+                sed -i "s|jeeva97/kafka-springboot-app:.*|jeeva97/kafka-springboot-app:${BUILD_NUMBER}|g" k8s/k8s-deployment.yaml
+
+                # commit and push
+                git add k8s/k8s-deployment.yaml
+                git commit -m "Update image tag to ${BUILD_NUMBER}"
+                git push https://${GIT_TOKEN}@github.com/jeevanandhamg/kafka.git main
+            '''
         }
     }
+}
     }
 
     post {
