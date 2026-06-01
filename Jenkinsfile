@@ -118,26 +118,23 @@ options {
 //     }
 
 stage('Update Image Tag in Git') {
-when {
+    when {
         not {
             changelog '.*ci: update image tag.*'
         }
     }
     steps {
         withCredentials([string(credentialsId: 'github-token', variable: 'GIT_TOKEN')]) {
-            sh '''
-                # configure git
+            sh """
                 git config user.name "jeevanandhamg"
                 git config user.email "jeevanandham97gksj@gmail.com"
 
-                # update image tag in deployment yaml
                 sed -i "s|jeeva97/kafka-springboot-app:.*|jeeva97/kafka-springboot-app:${BUILD_NUMBER}|g" k8s/k8s-deployment.yaml
 
-                # commit and push
                 git add k8s/k8s-deployment.yaml
                 git commit -m "ci: update image tag to ${BUILD_NUMBER}"
-                git push https://${GIT_TOKEN}@github.com/jeevanandhamg/kafka.git main
-            '''
+                git push https://\${GIT_TOKEN}@github.com/jeevanandhamg/kafka.git main
+            """
         }
     }
 }
